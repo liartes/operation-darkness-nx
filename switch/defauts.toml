@@ -1,0 +1,76 @@
+# Operation Darkness, version Switch : réglages fixes compilés dans le .nro (CMakeLists.txt, src/opdarkness_app.h
+# BuiltInConfig), appliqués avant le opdarkness.toml de la carte SD, qui peut encore changer chaque clé pour les essais.
+
+# Jeu et chemins
+license_mask = 1
+sa2_renderer_native = true
+# Branche renut (docs/DEKO3D.md) : rendu reNut sur deko3d au démarrage. Pour revenir au rendu natif (Vulkan, NVK) :
+# od_renderer = "xenos" dans le opdarkness.toml de la carte.
+od_renderer = "renut"
+renut_gpu_backend = "deko3d"
+# Pas de paquet game_root.nxpack : les données font 4,4 Go, au-delà de la limite de 4 Go d'un fichier en FAT32 (format
+# habituel des cartes SD de la Switch) ; lecture directe du dossier game_root/ (copie de assets/).
+asset_pack = false
+asset_pack_build = false
+od_cache_shaders = "cache_shaders"
+
+# Développement : journal sur la carte SD (logs/)
+log_level = "info"
+log_to_file = true
+
+# Manette : boutons A, B, X, Y selon leur lettre, comme les jeux Switch (demande de l'utilisateur, 2026-10-13), et non
+# selon leur position comme sur la manette Xbox 360 (réglage par défaut du SDK).
+input_xbox_layout = false
+
+# Rendu natif : deux raccourcis du pilote NVK coupés (2026-10-13). Ils ont été écrits pour le pilote de sa2-nx
+# (mesa-switch-masseffect.patch) ; avec le nôtre (celui de torchlight, correctif nfsmw, Mesa 26.2.1), actifs avec les
+# autres ils noircissaient la carte et le décor du combat, et actifs sans eux la console a planté (redémarrage). Les
+# autres (cbufs, dynamic, preload, ZCULL, tests de profondeur anticipés) sont sans effet sur l'image (essais A et C).
+sa2_native_set4_differences = false
+sa2_native_nvk_emission = false
+
+# Définition du rendu : 1280x720 (celle du jeu) en portable comme sur télé, choix de l'utilisateur (2026-10-13) ;
+# l'effort porte sur l'optimisation à cette définition (la valeur par défaut du rendu de sa2-nx était 1080 sur télé).
+sa2_render_height_handheld = 720
+sa2_render_height_docked = 720
+
+# Flou de profondeur de champ du jeu allégé : point central seul (3 lectures de texture au lieu de 15 ; différence
+# invisible à l'œil nu, validée par l'utilisateur le 2026-10-14 sur des captures côte à côte ; src/od_traducteur.cpp).
+od_flou_profondeur = 1
+# Définition dynamique (2026-10-14, demande de l'utilisateur : 540p pendant les cinématiques) : 540p tant que le GPU ne
+# tient pas 60 images/s (occupé > 90 % et < 57 images/s sur 30 images), retour en 720p dès que ça tiendrait
+# (src/me/sa2_render_mode.cpp, NoteFrameGpu). Étape 1 ; une détection exacte des cinématiques viendra ensuite si besoin.
+sa2_render_dynamic = true
+# opdarkness (2026-10-22, choix de l'utilisateur après la session du soir) : paliers 720 / 540 / 480 / 360. Le 648p
+# ne tenait presque jamais en combat (16-36 ms) ; le 480p comble le saut 540p -> 360p (540p à 19-21 ms : ~15-17 ms en
+# 480p). Les trois réglages de paliers servent tels quels : premier, second, dernier.
+sa2_render_height_dynamic_first = 540
+sa2_render_height_dynamic = 480
+# Second palier si 540p ne suffit pas (demande de l'utilisateur : la fluidité avant tout, pour garder le son et
+# l'image ensemble, la logique du jeu avançant d'un pas par image).
+sa2_render_height_dynamic_min = 360
+# Combat tenu en 540p (2026-11-03) : le processeur limite vers 19 ms par image, donc on ne descend sous le 540p qu'à
+# partir de 21 ms de GPU (cinématiques lourdes), et on remonte vers 540p dès que le temps prévu y reste sous 18 ms.
+od_render_descente_ms = 21.0
+od_render_montee_ms = 18.0
+# Contrôle du désentrelacement rapide des textures (2026-10-16) : la voie lente refaisait les 200 premiers niveaux
+# pour comparer, or les premières textures entrelacées du jeu arrivent avec la cinématique du combat et une partie
+# n'en atteint jamais 200 : le contrôle tournait pendant toute la cinématique (à-coups de 57 à 98 ms sur la console).
+# Mesure sur PC : 9,3 ms par MB avec, 3,2 sans. Aucune différence jamais trouvée ; 1 sur 64 reste contrôlé.
+sa2_native_tile_fast_checks = 0
+# Rendez-vous des fils de mixage audio (2026-10-16) : dormir au lieu de tourner (src/od_audio.cpp, mode 2) ; ils y
+# passaient plus de la moitié de leur temps sur la console (~25-30 % d'un cœur sur 3). Essai du 2026-10-16 : fils de mixage 29,1 -> 16,7 % d'un cœur, rien de reporté ailleurs.
+od_audio_attente = 2
+od_audio_stats = false
+# opdarkness (2026-10-22) : horloge du jeu (mftb, QueryPerformanceCounter) sans le mutex de UpdateGuestClock (temps non
+# mis à l'échelle de toute façon) : mutexTryLock / mutexUnlock à chaque lecture sur le fil de dessin.
+clock_no_scaling = true
+# opdarkness (2026-11-10, d'après rr6-nx) : fonction du test alpha dans la clé du pipeline (constante 903 des pixel
+# shaders traduits par la console, passes « alpha » et « earlyz » de src/od_chaine_deko3d.cpp) : un dessin sans test
+# alpha n'a plus de discard, le GPU rejette les pixels cachés avant le shader.
+banjo_deko3d_alpha_spec = true
+# opdarkness (2026-11-10) : passage de relais des résolutions de couleur (repris de rr6-nx) COUPÉ : sur la console, écran
+# entier en motifs colorés aux fondus et changements de caméra (données d'image lues brutes, compression matérielle
+# probable ; Ryujinx ne le montre pas). Coupé au toml de la carte, plus d'artefact (partie du 2026-11-10 14 h 41).
+banjo_deko3d_color_handover = false
+od_renut_relais_destruction = false

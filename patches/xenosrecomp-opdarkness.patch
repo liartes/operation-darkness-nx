@@ -1,0 +1,126 @@
+--- a/reblue-XenosRecomp/XenosRecomp/main.cpp
++++ b/reblue-XenosRecomp/XenosRecomp/main.cpp
+@@ -222,7 +222,8 @@
+                 // banjo-nx (package 27): the first of the two runs around tools/renut_early_alpha.py only dumps the
+                 // pixel shaders (BANJO_HLSL_DUMP_ONLY): no compile, and its cache file is thrown away.
+                 const bool dumpOnly = std::getenv("BANJO_HLSL_DUMP_ONLY") != nullptr;
+-                if (!hlslDumpDir.empty() && (recompiler.isPixelShader || !dumpOnly))
++                // opdarkness (2026-10-22): OD_HLSL_DUMP_VS dumps the vertex shaders too (tools/renut/od_ombres.py).
++                if (!hlslDumpDir.empty() && (recompiler.isPixelShader || !dumpOnly || std::getenv("OD_HLSL_DUMP_VS")))
+                 {
+                     auto path = std::filesystem::path(hlslDumpDir) /
+                         (shader.sourceName.empty()
+--- a/reblue-XenosRecomp/XenosRecomp/shader_common.h
++++ b/reblue-XenosRecomp/XenosRecomp/shader_common.h
+@@ -248,7 +248,8 @@
+ }
+ 
+ // Host texels per guest texel, by the host's RenderScale code (render_scale.h): 1x, 2/3 (480p),
+-// 1.5 (1080p), 2 (1440p), 3 (4K), 4, 6 and 4/3 (shadow maps and ambient occlusion rendered finer).
++// 1.5 (1080p), 2 (1440p), 3 (4K), 3/4 (540p), 1/2 (360p) and 9/10 (648p) (opdarkness: the dynamic render height's
++// steps, 4, 6 and 4/3 before).
+ float renutTextureScale(uint resourceDescriptorIndex)
+ {
+     const uint code = (resourceDescriptorIndex >> RENUT_RESOLUTION_SCALE_SHIFT) & 7u;
+@@ -257,9 +258,9 @@
+            select(code == 2u, 1.5,
+            select(code == 3u, 2.0,
+            select(code == 4u, 3.0,
+-           select(code == 5u, 4.0,
+-           select(code == 6u, 6.0,
+-           select(code == 7u, 4.0 / 3.0, 1.0)))))));
++           select(code == 5u, 0.75,
++           select(code == 6u, 0.5,
++           select(code == 7u, 0.9, 1.0)))))));
+ }
+ 
+ // A scaled texture's guest width and height from its host ones.
+--- a/reblue-XenosRecomp/XenosRecomp/shader_recompiler.cpp
++++ b/reblue-XenosRecomp/XenosRecomp/shader_recompiler.cpp
+@@ -2362,22 +2362,17 @@
+             auto definition = reinterpret_cast<const Int4Definition*>(definitions);
+             for (uint16_t i = 0; i < definition->count; i++)
+             {
+-                union
++                // opdarkness (GCC, comme sa2-nx) : nommée ; GCC refuse la structure anonyme d'une union locale.
++                union Bytes4
+                 {
+                     uint32_t value;
+-                    struct
+-                    {
+-                        int8_t x;
+-                        int8_t y;
+-                        int8_t z;
+-                        int8_t w;
+-                    };
+-                };
++                    struct { int8_t x, y, z, w; } b;
++                } u;
+ 
+-                value = definition->values[i].get();
++                u.value = definition->values[i].get();
+ 
+                 println("\tint4 i{} = int4({}, {}, {}, {});",
+-                    (definition->registerIndex - 8992) / 4 + i, x, y, z, w);
++                    (definition->registerIndex - 8992) / 4 + i, u.b.x, u.b.y, u.b.z, u.b.w);
+             }
+ #ifdef RENUT_RECOMP
+             // One (register, count) header word followed by the values.
+@@ -2520,17 +2515,17 @@
+ 
+     const be<uint32_t>* code = reinterpret_cast<const be<uint32_t>*>(shaderData + shaderContainer->virtualSize + shader->physicalOffset);
+ 
+-    union
++    // opdarkness (GCC, comme sa2-nx) : nommée, avec des références pour le reste du corps.
++    union ControlFlowWords
+     {
+         ControlFlowInstruction controlFlow[2];
+-        struct
+-        {
+-            uint32_t code0;
+-            uint32_t code1;
+-            uint32_t code2;
+-            uint32_t code3;
+-        };
+-    };
++        struct { uint32_t code0, code1, code2, code3; } w;
++    } cfu;
++    ControlFlowInstruction (&controlFlow)[2] = cfu.controlFlow;
++    uint32_t& code0 = cfu.w.code0;
++    uint32_t& code1 = cfu.w.code1;
++    uint32_t& code2 = cfu.w.code2;
++    uint32_t& code3 = cfu.w.code3;
+ 
+     auto controlFlowCode = code;
+     uint32_t instrAddress = 0;
+@@ -3042,19 +3037,21 @@
+             
+             for (uint32_t i = 0; i < count; i++)
+             {
+-                union
++                // opdarkness (GCC, comme sa2-nx) : nommée, avec des références pour le reste du corps.
++                union InstrWords
+                 {
+                     VertexFetchInstruction vertexFetch;
+                     TextureFetchInstruction textureFetch;
+                     AluInstruction alu;
+-                    struct
+-                    {
+-                        uint32_t code0;
+-                        uint32_t code1;
+-                        uint32_t code2;
+-                    };
+-                };
+-            
++                    struct { uint32_t code0, code1, code2; } w;
++                } iu;
++                VertexFetchInstruction& vertexFetch = iu.vertexFetch;
++                TextureFetchInstruction& textureFetch = iu.textureFetch;
++                AluInstruction& alu = iu.alu;
++                uint32_t& code0 = iu.w.code0;
++                uint32_t& code1 = iu.w.code1;
++                uint32_t& code2 = iu.w.code2;
++
+                 code0 = instructionCode[0];
+                 code1 = instructionCode[1];
+                 code2 = instructionCode[2];

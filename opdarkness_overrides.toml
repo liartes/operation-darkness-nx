@@ -1,0 +1,23 @@
+# Clés racines du générateur pour la correction du code traduit (incluses par opdarkness_manifest.toml).
+#
+# setjmp / longjmp de la bibliothèque C du jeu (2026-10-09, trouvés par tools/read_before_write.py de sa2-nx : seul cas
+# signalé, sub_826A6360 lit cr1-cr7 avant de les écrire) : le générateur les remplace par setjmp / longjmp de l'hôte
+# rangés selon le jmp_buf invité. Sans eux, un longjmp traduit ne peut pas revenir au point du setjmp (sa2-nx : retour
+# avec la pile d'un autre cadre, plantage), et les registres en variables locales (codegen_flavor.toml) y perdraient
+# leurs valeurs.
+#   setjmp  0x826A6360 : appel d'un crochet facultatif ([0x81A801F8]), puis sauvegarde de lr, cr, f14-f31, r13-r31,
+#                        v14-v31... dans le tampon r3 ; 10 appelants (0x8235FAA0, 0x82377788, 0x82783C58, 0x82843398...)
+#   longjmp 0x826A5E10 : longjmp(tampon r3, valeur r4 ; 0 -> 1), déroulement RtlUnwind, rechargement du tampon (r7) ;
+#                        18 appels dans 13 fonctions
+#
+# NON DÉCLARÉS (2026-10-09) : avec ces deux clés, la vidéo d'introduction (décodeur vidéo du jeu) sortait brouillée,
+# alors que ni setjmp ni longjmp ne sont appelés pendant le scénario de combat (src/od_setjmp.cpp,
+# --od_setjmp_journal : 0 appel) ; leur déclaration changeait 48 fichiers générés, pas seulement les 10 appelants
+# (le générateur traite autrement le code autour des appels, sans doute la suite d'un longjmp jugée inatteignable).
+# Bissection : étape A + déclaration = brouillée, étape A seule = juste. (La vidéo brouillée de l'étape B avait une
+# autre cause, les registres vectoriels du décodeur : codegen_flavor.toml, non_volatile_vectors_as_local.) Le chemin
+# d'erreur longjmp reste donc tel que traduit (sans retour au point du setjmp) ; l'effet de la déclaration sur la
+# vidéo n'est pas expliqué (à revoir avant de la remettre).
+# setjmp_address = 0x826A6360
+# longjmp_address = 0x826A5E10
+

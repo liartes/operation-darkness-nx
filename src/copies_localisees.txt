@@ -1,0 +1,19 @@
+# Fonctions du jeu remplacées par des « copies localisées » (tools/localize_native.py de sa2-nx) : le code généré de la
+# fonction, registres du jeu en variables C++ locales ; exactes par construction. Produites dans generated/hot/ par
+# tools/apres_codegen.py après chaque génération (dérivées du code du jeu : non versionnées). Branchées par
+# src/od_copies.cpp (réglage od_copies_localisees). Choisies sur le profil de la console du 2026-10-14
+# (docs/OPTIMISATION.md, « Copies localisées »). Une par ligne : <adresse> <description>
+826A6900 log (bibliothèque C) : ~19 % du fil « Audio Worker » sur la console
+826A6A80 log10 = log x 1/ln 10 : ~39 % du fil « Audio Worker » (log intégré par GCC)
+8289FF20 rééchantillonneur VMX du mixage audio : ~17-22 % des deux fils de mixage
+82335ED0 traitement audio du jeu (fil Audio Worker) : ~14 %
+82336B78 traitement audio du jeu (fil Audio Worker) : ~12 %
+823ACAA8 décodeur vidéo WMV, transformée inverse (VMX entier) : ~24 % du fil de lecture pendant les vidéos (profil console du 2026-10-16)
+823ACE18 décodeur vidéo WMV, transformée inverse (VMX entier) : ~23 % du fil de lecture pendant les vidéos
+823ABB38 décodeur vidéo WMV (entier, branches) : ~12 % du fil de lecture pendant les vidéos
+823AA7F8 décodeur vidéo WMV (VMX) : ~10 % du fil de lecture pendant les vidéos
+823A7D10 décodeur vidéo WMV (stvehx, vsplth) : ~9 % du fil de lecture pendant les vidéos
+828A5210 mixage XACT (VMX) : ~13 % des deux fils de mixage
+8288F270 mixage XACT, somme flottante (VMX) : ~12 % des deux fils de mixage
+82335928 compresseur audio (enveloppe, log10/pow par échantillon) : fil « Audio Worker »
+8261CCA8 test de visibilité d'une boîte englobante (VMX, fil de dessin ~2 %) [pile locale]

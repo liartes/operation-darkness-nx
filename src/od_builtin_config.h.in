@@ -1,0 +1,7 @@
+// Généré par CMake (configure_file) ; modifier les .toml de switch/, pas ce fichier.
+//   kOdBuiltInConfig  switch/defauts.toml : réglages fixes de la version Switch, appliqués avant opdarkness.toml.
+//   kOdPlayerConfig   switch/opdarkness.toml : écrit à côté du .nro s'il n'y en a pas.
+#pragma once
+
+inline constexpr char kOdBuiltInConfig[] = R"ODCONFIG(@OD_BUILTIN_CONFIG@)ODCONFIG";
+inline constexpr char kOdPlayerConfig[] = R"ODCONFIG(@OD_PLAYER_CONFIG@)ODCONFIG";
